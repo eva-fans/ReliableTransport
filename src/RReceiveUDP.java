@@ -2,6 +2,8 @@ import edu.utulsa.unet.RReceiveUDPI;
 import edu.utulsa.unet.UDPSocket;
 
 import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
@@ -18,6 +20,7 @@ public class RReceiveUDP implements RReceiveUDPI{
     private Hashtable<Integer,RPacket> unanswer;
     private int remotePort;
     private int file_length;
+    private byte[] fileBytes;
     private ArrayList<RPacket> file_list;
 
     public RReceiveUDP(short port) throws SocketException
@@ -103,6 +106,7 @@ public class RReceiveUDP implements RReceiveUDPI{
                 send_rpacket=new RPacket(sequence, 0, 0, 0, 0, RPacket.TYPE_SYN_ACK);
                 send(send_rpacket);
                 unanswer.put(sequence,send_rpacket);
+                fileBytes=new byte[file_length];
                 break;
             case RPacket.TYPE_ACK:
                 if(unanswer.containsKey(rpacket.sequence)){
@@ -113,9 +117,23 @@ public class RReceiveUDP implements RReceiveUDPI{
                 file_list.add(rpacket);
                 send_rpacket=new RPacket(sequence, rpacket.sequence, 0, 0, 0, RPacket.TYPE_ACK);
                 send(send_rpacket);
+                for(int i=0;i<rpacket.length;i++){
+                    fileBytes[rpacket.offset+i]=rpacket.data[i];
+                }
                 break;
             case RPacket.TYPE_TERMI:
                 socket.close();
+                File file=new File(filename);
+                try {
+                    file.createNewFile();
+                    FileOutputStream output=new FileOutputStream(file);
+                    output.write(fileBytes);
+                    output.close();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                
             default:
                 return false;
         }
